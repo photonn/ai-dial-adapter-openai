@@ -9,10 +9,9 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from pydantic import BaseModel
 
+from aidial_adapter_openai.exception_handlers import to_dial_exception
 from aidial_adapter_openai.utils.chat_completion_response import (
-    ChatCompletionResponse,
-    ChatCompletionStreamingChunk,
-)
+    ChatCompletionResponse, ChatCompletionStreamingChunk)
 from aidial_adapter_openai.utils.log_config import logger
 from aidial_adapter_openai.utils.sse_stream import to_openai_sse_stream
 
@@ -52,6 +51,7 @@ def build_chunk(
 
 
 async def generate_stream(
+    stream: AsyncIterator[dict],
     *,
     stream: AsyncIterator[dict],
     get_prompt_tokens: Callable[[], int],
@@ -105,7 +105,7 @@ async def generate_stream(
     buffer_chunk = None
     response_snapshot = ChatCompletionStreamingChunk()
 
-    error: Exception | None = None
+    error: DialException | None = None
 
     try:
         async for chunk in stream:
@@ -129,10 +129,7 @@ async def generate_stream(
                 last_chunk = chunk
 
     except Exception as e:
-        logger.exception(
-            f"caught exception while streaming: {type(e).__module__}.{type(e).__name__}"
-        )
-        error = e
+        error = to_dial_exception(e)
 
     if last_chunk is not None and buffer_chunk is not None:
         last_chunk = merge_chat_completion_chunks(last_chunk, buffer_chunk)

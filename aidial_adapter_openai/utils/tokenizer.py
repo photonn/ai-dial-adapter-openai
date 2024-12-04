@@ -9,9 +9,8 @@ from typing import Any, Callable, Generic, List, TypeVar
 from aidial_sdk.exceptions import InternalServerError
 from tiktoken import Encoding, encoding_for_model
 
-from aidial_adapter_openai.utils.chat_completion_response import (
-    ChatCompletionResponse,
-)
+from aidial_adapter_openai.utils.chat_completion_response import \
+    ChatCompletionResponse
 from aidial_adapter_openai.utils.image_tokenizer import ImageTokenizer
 from aidial_adapter_openai.utils.multi_modal_message import MultiModalMessage
 from aidial_adapter_openai.utils.text import truncate_string
@@ -155,11 +154,11 @@ class PlainTextTokenizer(BaseTokenizer[dict]):
     """
 
     def _handle_custom_content_part(self, content_part: Any):
-        short_content_str = truncate_string(str(content_part), 100)
+        short_content_part = truncate_string(str(content_part), 100)
         raise InternalServerError(
-            f"Unexpected non-textural content part in the request: {short_content_str!r}. "
+            f"Unexpected non-textural content part in the request: {short_content_part!r}. "
             f"The deployment only supports plain text messages. "
-            f"Declare the deployment as a multi-modal one in the OpenAI adapter configuration to avoid the error."
+            f"Declare the deployment as a multi-modal one to avoid the error."
         )
 
     def tokenize_request_message(self, message: dict) -> int:

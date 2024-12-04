@@ -1,26 +1,56 @@
+from typing import Dict
+
 from aidial_sdk.exceptions import HTTPException as DialException
 from aidial_sdk.exceptions import InternalServerError
-from fastapi.requests import Request as FastAPIRequest
-from fastapi.responses import Response as FastAPIResponse
-from openai import APIConnectionError, APIError, APIStatusError, APITimeoutError
+from fastapi import Request
+from fastapi.responses import Response
+from openai import (APIConnectionError, APIError, APIStatusError,
+                    APITimeoutError, OpenAIError)
 
 from aidial_adapter_openai.utils.adapter_exception import (
-    AdapterException,
-    ResponseWrapper,
-    parse_adapter_exception,
-)
+    AdapterException, ResponseWrapper, parse_adapter_exception)
 from aidial_adapter_openai.utils.log_config import logger
 
 
-def to_adapter_exception(exc: Exception) -> AdapterException:
+def _parse_dial_exception(
+    status_code: int,
+    content: dict | str,
+    headers: Dict[str, str] | None = None,
+) -> DialException:
+    if (
+        isinstance(content, dict)
+        and (error := content.get("error"))
+        and isinstance(error, dict)
+    ):
+        message = error.get("message") or "Unknown error"
+        code = error.get("code")
+        type = error.get("type")
+        param = error.get("param")
+        display_message = error.get("display_message")
 
-    if isinstance(exc, (DialException, ResponseWrapper)):
-        return exc
+        return DialException(
+            status_code=status_code,
+            message=message,
+            type=type,
+            param=param,
+            code=code,
+            display_message=display_message,
+            headers=headers,
+        )
+    else:
+        return DialException(
+            status_code=status_code,
+            message=str(content),
+            headers=headers,
+        )
 
+
+def to_dial_exception(exc: Exception) -> DialException:
     if isinstance(exc, APIStatusError):
         # Non-streaming errors reported by `openai` library via this exception
+
         r = exc.response
-        httpx_headers = r.headers
+        headers = r.headers
 
         # httpx library (used by openai) automatically sets
         # "Accept-Encoding:gzip,deflate" header in requests to the upstream.
@@ -28,13 +58,20 @@ def to_adapter_exception(exc: Exception) -> AdapterException:
         # response along with "Content-Encoding:gzip" header.
         # We either need to encode the response, or
         # remove the "Content-Encoding" header.
-        if "Content-Encoding" in httpx_headers:
-            del httpx_headers["Content-Encoding"]
+        if "Content-Encoding" in headers:
+            del headers["Content-Encoding"]
 
-        return parse_adapter_exception(
+        plain_headers = {k.decode(): v.decode() for k, v in headers.raw}
+
+        try:
+            content = r.json()
+        except Exception:
+            content = r.text
+
+        return _parse_dial_exception(
             status_code=r.status_code,
-            headers=httpx_headers,
-            content=r.text,
+            headers=plain_headers,
+            content=content,
         )
 
     if isinstance(exc, APITimeoutError):
@@ -62,22 +99,18 @@ def to_adapter_exception(exc: Exception) -> AdapterException:
             except Exception:
                 pass
 
-        return parse_adapter_exception(
+        return _parse_dial_exception(
             status_code=status_code,
             headers={},
             content={"error": exc.body or {}},
         )
 
+    if isinstance(exc, DialException):
+        return exc
+
     return InternalServerError(str(exc))
 
 
-def adapter_exception_handler(
-    request: FastAPIRequest, e: Exception
-) -> FastAPIResponse:
-    adapter_exception = to_adapter_exception(e)
-
-    logger.error(
-        f"Caught exception: {type(e).__module__}.{type(e).__name__}. "
-        f"Converted to the adapter exception: {adapter_exception!r}"
-    )
-    return adapter_exception.to_fastapi_response()
+def openai_exception_handler(request: Request, exc: Exception) -> Response:
+    assert isinstance(exc, OpenAIError)
+    return to_dial_exception(exc).to_fastapi_response()

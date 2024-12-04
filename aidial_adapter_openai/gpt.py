@@ -8,18 +8,12 @@ from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from aidial_adapter_openai.utils.auth import OpenAICreds
 from aidial_adapter_openai.utils.parsers import chat_completions_parser
 from aidial_adapter_openai.utils.reflection import call_with_extra_body
-from aidial_adapter_openai.utils.streaming import (
-    chunk_to_dict,
-    debug_print,
-    generate_stream,
-    map_stream,
-)
+from aidial_adapter_openai.utils.streaming import (chunk_to_dict, debug_print,
+                                                   generate_stream, map_stream)
 from aidial_adapter_openai.utils.tokenizer import PlainTextTokenizer
-from aidial_adapter_openai.utils.truncate_prompt import (
-    DiscardedMessages,
-    TruncatedTokens,
-    truncate_prompt,
-)
+from aidial_adapter_openai.utils.truncate_prompt import (DiscardedMessages,
+                                                         TruncatedTokens,
+                                                         truncate_prompt)
 
 
 def plain_text_truncate_prompt(
@@ -78,7 +72,7 @@ async def gpt_chat_completion(
 
     if isinstance(response, AsyncIterator):
         return generate_stream(
-            stream=map_stream(chunk_to_dict, response),
+            map_stream(chunk_to_dict, response),
             get_prompt_tokens=lambda: estimated_prompt_tokens
             or tokenizer.tokenize_request(request, request["messages"]),
             tokenize_response=tokenizer.tokenize_response,

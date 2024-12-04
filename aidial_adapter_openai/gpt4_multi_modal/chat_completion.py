@@ -1,15 +1,6 @@
 import os
-from typing import (
-    Any,
-    AsyncIterator,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-    TypeVar,
-    cast,
-)
+from typing import (Any, AsyncIterator, Callable, Dict, List, Optional, Tuple,
+                    TypeVar, cast)
 
 import aiohttp
 from aidial_sdk.exceptions import HTTPException as DialException
@@ -17,33 +8,24 @@ from aidial_sdk.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
 from aidial_adapter_openai.dial_api.storage import FileStorage
-from aidial_adapter_openai.gpt4_multi_modal.gpt4_vision import (
-    convert_gpt4v_to_gpt4_chunk,
-)
+from aidial_adapter_openai.gpt4_multi_modal.gpt4_vision import \
+    convert_gpt4v_to_gpt4_chunk
 from aidial_adapter_openai.gpt4_multi_modal.transformation import (
-    SUPPORTED_FILE_EXTS,
-    ResourceProcessor,
-)
+    SUPPORTED_FILE_EXTS, ResourceProcessor)
 from aidial_adapter_openai.utils.auth import OpenAICreds, get_auth_headers
-from aidial_adapter_openai.utils.chat_completion_response import (
-    ChatCompletionBlock,
-)
+from aidial_adapter_openai.utils.chat_completion_response import \
+    ChatCompletionBlock
 from aidial_adapter_openai.utils.log_config import logger
 from aidial_adapter_openai.utils.multi_modal_message import MultiModalMessage
 from aidial_adapter_openai.utils.sse_stream import parse_openai_sse_stream
-from aidial_adapter_openai.utils.streaming import (
-    create_response_from_chunk,
-    create_stage_chunk,
-    generate_stream,
-    map_stream,
-    prepend_to_stream,
-)
+from aidial_adapter_openai.utils.streaming import (create_response_from_chunk,
+                                                   create_stage_chunk,
+                                                   generate_stream, map_stream,
+                                                   prepend_to_stream)
 from aidial_adapter_openai.utils.tokenizer import MultiModalTokenizer
-from aidial_adapter_openai.utils.truncate_prompt import (
-    DiscardedMessages,
-    TruncatedTokens,
-    truncate_prompt,
-)
+from aidial_adapter_openai.utils.truncate_prompt import (DiscardedMessages,
+                                                         TruncatedTokens,
+                                                         truncate_prompt)
 
 # The built-in default max_tokens is 16 tokens,
 # which is too small for most image-to-text use cases.
@@ -262,7 +244,7 @@ async def chat_completion(
         return map_stream(
             debug_print,
             generate_stream(
-                stream=map_stream(
+                map_stream(
                     response_transformer,
                     parse_openai_sse_stream(response),
                 ),
