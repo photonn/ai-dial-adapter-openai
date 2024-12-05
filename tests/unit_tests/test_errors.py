@@ -1,6 +1,5 @@
 import json
-from typing import Any, AsyncIterable, AsyncIterator, Callable
-from unittest.mock import patch
+from typing import Any, AsyncIterator, Callable
 
 import httpx
 import respx
@@ -498,6 +497,7 @@ async def test_timeout_error_from_upstream(test_app: httpx.AsyncClient):
 
 
 @respx.mock
+@pytest.mark.asyncio
 async def test_connection_error_from_upstream_non_streaming(
     test_app: httpx.AsyncClient,
 ):
@@ -523,6 +523,49 @@ async def test_connection_error_from_upstream_non_streaming(
             "display_message": "OpenAI server is not responsive. Please try again later.",
         }
     }
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_connection_error_from_upstream_streaming(
+    test_app: httpx.AsyncClient,
+):
+    class mock_stream(httpx.AsyncByteStream):
+        async def __aiter__(self) -> AsyncIterator[bytes]:
+            yield b'data: {"message": "first chunk"}\n\n'
+            yield b'data: {"message": "second chunk"}\n\n'
+            raise httpx.ConnectError("Connection error")
+
+    respx.post(
+        "http://localhost:5001/openai/deployments/gpt-4/chat/completions?api-version=2023-03-15-preview"
+    ).mock(
+        side_effect=lambda request: httpx.Response(
+            status_code=200, stream=mock_stream()
+        )
+    )
+
+    response = await test_app.post(
+        "/openai/deployments/gpt-4/chat/completions?api-version=2023-03-15-preview",
+        json={
+            "stream": True,
+            "messages": [{"role": "user", "content": "Test content"}],
+        },
+        headers={
+            "X-UPSTREAM-KEY": "TEST_API_KEY",
+            "X-UPSTREAM-ENDPOINT": "http://localhost:5001/openai/deployments/gpt-4/chat/completions",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.text == "\n\n".join(
+        [
+            'data: {"message":"first chunk"}',
+            'data: {"message":"second chunk"}',
+            'data: {"error":{"message":"Connection error","type":"internal_server_error","code":"500"}}',
+            "data: [DONE]",
+            "",
+        ]
+    )
 
 
 @pytest.mark.asyncio

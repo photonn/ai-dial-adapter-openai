@@ -130,7 +130,13 @@ async def generate_stream(
                 last_chunk = chunk
 
     except Exception as e:
+        logger.exception(
+            f"caught exception while streaming: {type(e).__module__}.{type(e).__name__}"
+        )
+
         error = to_adapter_exception(e)
+
+        logger.error(f"converted to the adapter exception: {error!r}")
 
     if last_chunk is not None and buffer_chunk is not None:
         last_chunk = merge_chat_completion_chunks(last_chunk, buffer_chunk)

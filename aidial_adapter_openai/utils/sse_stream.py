@@ -65,7 +65,7 @@ async def to_openai_sse_stream(
         )
 
         adapter_exception = to_adapter_exception(e)
-        logger.exception(
+        logger.error(
             f"converted to the adapter exception: {adapter_exception!r}"
         )
 

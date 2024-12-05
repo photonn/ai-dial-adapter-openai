@@ -154,9 +154,9 @@ class PlainTextTokenizer(BaseTokenizer[dict]):
     """
 
     def _handle_custom_content_part(self, content_part: Any):
-        short_content_part = truncate_string(str(content_part), 100)
+        short_content_str = truncate_string(str(content_part), 100)
         raise InternalServerError(
-            f"Unexpected non-textural content part in the request: {short_content_part!r}. "
+            f"Unexpected non-textural content part in the request: {short_content_str!r}. "
             f"The deployment only supports plain text messages. "
             f"Declare the deployment as a multi-modal one to avoid the error."
         )
