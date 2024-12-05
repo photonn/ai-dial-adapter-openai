@@ -568,6 +568,48 @@ async def test_connection_error_from_upstream_streaming(
     )
 
 
+@respx.mock
+@pytest.mark.asyncio
+async def test_invalid_chunk_stream_from_upstream(
+    test_app: httpx.AsyncClient,
+):
+    class mock_stream(httpx.AsyncByteStream):
+        async def __aiter__(self) -> AsyncIterator[bytes]:
+            yield b"data: chunk1\n\n"
+            yield b"data: chunk2\n\n"
+            yield b"data: [DONE]\n\n"
+
+    respx.post(
+        "http://localhost:5001/openai/deployments/gpt-4/chat/completions?api-version=2023-03-15-preview"
+    ).mock(
+        side_effect=lambda request: httpx.Response(
+            status_code=200, stream=mock_stream()
+        )
+    )
+
+    response = await test_app.post(
+        "/openai/deployments/gpt-4/chat/completions?api-version=2023-03-15-preview",
+        json={
+            "stream": True,
+            "messages": [{"role": "user", "content": "Test content"}],
+        },
+        headers={
+            "X-UPSTREAM-KEY": "TEST_API_KEY",
+            "X-UPSTREAM-ENDPOINT": "http://localhost:5001/openai/deployments/gpt-4/chat/completions",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.text == "\n\n".join(
+        [
+            # OpenAI is unable to parse SSE entry with invalid JSON and fails with the following error:
+            'data: {"error":{"message":"Expecting value: line 1 column 1 (char 0)","type":"internal_server_error","code":"500"}}',
+            "data: [DONE]",
+            "",
+        ]
+    )
+
+
 @pytest.mark.asyncio
 async def test_incorrect_streaming_request(test_app: httpx.AsyncClient):
     response = await test_app.post(
