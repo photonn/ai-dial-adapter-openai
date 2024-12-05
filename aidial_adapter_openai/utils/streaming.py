@@ -9,8 +9,6 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from pydantic import BaseModel
 
-from aidial_adapter_openai.exception_handlers import to_adapter_exception
-from aidial_adapter_openai.utils.adapter_exception import AdapterException
 from aidial_adapter_openai.utils.chat_completion_response import (
     ChatCompletionResponse, ChatCompletionStreamingChunk)
 from aidial_adapter_openai.utils.log_config import logger
@@ -106,7 +104,7 @@ async def generate_stream(
     buffer_chunk = None
     response_snapshot = ChatCompletionStreamingChunk()
 
-    error: AdapterException | None = None
+    error: Exception | None = None
 
     try:
         async for chunk in stream:
@@ -133,10 +131,7 @@ async def generate_stream(
         logger.exception(
             f"caught exception while streaming: {type(e).__module__}.{type(e).__name__}"
         )
-
-        error = to_adapter_exception(e)
-
-        logger.error(f"converted to the adapter exception: {error!r}")
+        error = e
 
     if last_chunk is not None and buffer_chunk is not None:
         last_chunk = merge_chat_completion_chunks(last_chunk, buffer_chunk)

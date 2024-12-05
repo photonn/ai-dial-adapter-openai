@@ -621,18 +621,6 @@ async def test_unexpected_multi_modal_input_streaming(
         single_choice_chunk(delta={}, finish_reason="stop"),
     )
 
-    expected_stream = OpenAIStream(
-        single_choice_chunk(delta={"role": "assistant"}),
-        single_choice_chunk(delta={"content": "Test response"}),
-        {
-            "error": {
-                "message": "Unexpected non-textural content part in the request: \"{'type': 'image_url', 'image_url': {'url': 'http://example.com/image.png'}}\". The deployment only supports plain text messages. Declare the deployment as a multi-modal one in the OpenAI adapter configuration to avoid the error.",
-                "type": "internal_server_error",
-                "code": "500",
-            }
-        },
-    )
-
     respx.post(
         "http://localhost:5001/openai/deployments/gpt-4/chat/completions?api-version=2023-03-15-preview"
     ).respond(
@@ -666,10 +654,7 @@ async def test_unexpected_multi_modal_input_streaming(
     )
 
     assert response.status_code == 200
-    expected_stream.assert_response_content(
-        response,
-        assert_equal,
-    )
+    mock_stream.assert_response_content(response, assert_equal)
 
 
 @pytest.mark.asyncio
