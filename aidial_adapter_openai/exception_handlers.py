@@ -1,25 +1,69 @@
-from typing import Dict
+import json
+from typing import Any, Dict
 
 from aidial_sdk.exceptions import HTTPException as DialException
 from aidial_sdk.exceptions import InternalServerError
+from fastapi import HTTPException as FastAPIException
 from fastapi import Request
 from fastapi.responses import Response
-from openai import (APIConnectionError, APIError, APIStatusError,
-                    APITimeoutError, OpenAIError)
+from openai import (
+    APIConnectionError,
+    APIError,
+    APIStatusError,
+    APITimeoutError,
+    OpenAIError,
+)
+from typing_extensions import override
 
-from aidial_adapter_openai.utils.adapter_exception import (
-    AdapterException, ResponseWrapper, parse_adapter_exception)
-from aidial_adapter_openai.utils.log_config import logger
+
+class PlainDialException(DialException):
+    content: Any
+
+    def __init__(
+        self,
+        *,
+        content: Any,
+        status_code: int,
+        headers: Dict[str, str] | None,
+    ) -> None:
+        super().__init__(
+            message=str(content),
+            status_code=status_code,
+            headers=headers,
+        )
+        self.content = content
+
+    @override
+    def to_fastapi_response(self) -> Response:  # type: ignore
+        return Response(
+            status_code=self.status_code,
+            content=self.content,
+            headers=self.headers,
+        )
+
+    @override
+    def to_fastapi_exception(self) -> FastAPIException:
+        return FastAPIException(
+            status_code=self.status_code,
+            detail=self.content,
+            headers=self.headers,
+        )
 
 
 def _parse_dial_exception(
-    status_code: int,
-    content: dict | str,
-    headers: Dict[str, str] | None = None,
-) -> DialException:
+    *, status_code: int, headers: Dict[str, str], content: Any
+) -> DialException | None:
+    if isinstance(content, str):
+        try:
+            obj = json.loads(content)
+        except Exception:
+            return None
+    else:
+        obj = content
+
     if (
-        isinstance(content, dict)
-        and (error := content.get("error"))
+        isinstance(obj, dict)
+        and (error := obj.get("error"))
         and isinstance(error, dict)
     ):
         message = error.get("message") or "Unknown error"
@@ -37,20 +81,15 @@ def _parse_dial_exception(
             display_message=display_message,
             headers=headers,
         )
-    else:
-        return DialException(
-            status_code=status_code,
-            message=str(content),
-            headers=headers,
-        )
+
+    return None
 
 
 def to_dial_exception(exc: Exception) -> DialException:
     if isinstance(exc, APIStatusError):
         # Non-streaming errors reported by `openai` library via this exception
-
         r = exc.response
-        headers = r.headers
+        httpx_headers = r.headers
 
         # httpx library (used by openai) automatically sets
         # "Accept-Encoding:gzip,deflate" header in requests to the upstream.
@@ -58,19 +97,20 @@ def to_dial_exception(exc: Exception) -> DialException:
         # response along with "Content-Encoding:gzip" header.
         # We either need to encode the response, or
         # remove the "Content-Encoding" header.
-        if "Content-Encoding" in headers:
-            del headers["Content-Encoding"]
+        if "Content-Encoding" in httpx_headers:
+            del httpx_headers["Content-Encoding"]
 
-        plain_headers = {k.decode(): v.decode() for k, v in headers.raw}
-
-        try:
-            content = r.json()
-        except Exception:
-            content = r.text
+        headers = {k.decode(): v.decode() for k, v in httpx_headers.raw}
+        status_code = r.status_code
+        content = r.text
 
         return _parse_dial_exception(
-            status_code=r.status_code,
-            headers=plain_headers,
+            status_code=status_code,
+            headers=headers,
+            content=content,
+        ) or PlainDialException(
+            status_code=status_code,
+            headers=headers,
             content=content,
         )
 
@@ -99,10 +139,17 @@ def to_dial_exception(exc: Exception) -> DialException:
             except Exception:
                 pass
 
+        headers = {}
+        content = {"error": exc.body or {}}
+
         return _parse_dial_exception(
             status_code=status_code,
-            headers={},
-            content={"error": exc.body or {}},
+            headers=headers,
+            content=content,
+        ) or PlainDialException(
+            status_code=status_code,
+            headers=headers,
+            content=content,
         )
 
     if isinstance(exc, DialException):
