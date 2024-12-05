@@ -3,7 +3,7 @@ from typing import Any, AsyncIterator, Mapping
 
 from aidial_sdk.exceptions import runtime_server_error
 
-from aidial_adapter_openai.exception_handlers import to_dial_exception
+from aidial_adapter_openai.exception_handlers import to_adapter_exception
 from aidial_adapter_openai.utils.log_config import logger
 
 DATA_PREFIX = "data: "
@@ -64,9 +64,11 @@ async def to_openai_sse_stream(
             f"caught exception while streaming: {type(e).__module__}.{type(e).__name__}"
         )
 
-        dial_exception = to_dial_exception(e)
-        logger.exception(f"converted to the dial exception: {dial_exception!r}")
+        adapter_exception = to_adapter_exception(e)
+        logger.exception(
+            f"converted to the adapter exception: {adapter_exception!r}"
+        )
 
-        yield format_chunk(dial_exception.json_error())
+        yield format_chunk(adapter_exception.json_error())
 
     yield END_CHUNK
