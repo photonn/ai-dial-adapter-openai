@@ -158,7 +158,7 @@ class PlainTextTokenizer(BaseTokenizer[dict]):
         raise InternalServerError(
             f"Unexpected non-textural content part in the request: {short_content_str!r}. "
             f"The deployment only supports plain text messages. "
-            f"Declare the deployment as a multi-modal one to avoid the error."
+            f"Declare the deployment as a multi-modal one in the OpenAI adapter configuration to avoid the error."
         )
 
     def tokenize_request_message(self, message: dict) -> int:
