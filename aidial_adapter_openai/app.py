@@ -27,7 +27,7 @@ def create_app(
     app_config: ApplicationConfig | None = None,
     init_telemetry: bool = True,
 ) -> FastAPI:
-    app = FastAPI(lifespan=lifespan, debug=True)
+    app = FastAPI(lifespan=lifespan)
     set_app_config(app, app_config or ApplicationConfig.from_env())
 
     if init_telemetry:
