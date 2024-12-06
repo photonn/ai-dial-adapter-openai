@@ -1,5 +1,5 @@
 import json
-from typing import Any, AsyncIterator, Callable
+from typing import Any, AsyncIterable, Callable
 
 import httpx
 import respx
@@ -530,18 +530,17 @@ async def test_connection_error_from_upstream_non_streaming(
 async def test_connection_error_from_upstream_streaming(
     test_app: httpx.AsyncClient,
 ):
-    class mock_stream(httpx.AsyncByteStream):
-        async def __aiter__(self) -> AsyncIterator[bytes]:
-            yield b'data: {"message": "first chunk"}\n\n'
-            yield b'data: {"message": "second chunk"}\n\n'
-            raise httpx.ConnectError("Connection error")
+    async def mock_stream() -> AsyncIterable[bytes]:
+        yield b'data: {"message": "first chunk"}\n\n'
+        yield b'data: {"message": "second chunk"}\n\n'
+        raise httpx.ConnectError("Connection error")
 
     respx.post(
         "http://localhost:5001/openai/deployments/gpt-4/chat/completions?api-version=2023-03-15-preview"
-    ).mock(
-        side_effect=lambda request: httpx.Response(
-            status_code=200, stream=mock_stream()
-        )
+    ).respond(
+        status_code=200,
+        content_type="text/event-stream",
+        content=mock_stream(),
     )
 
     response = await test_app.post(
@@ -573,18 +572,17 @@ async def test_connection_error_from_upstream_streaming(
 async def test_invalid_chunk_stream_from_upstream(
     test_app: httpx.AsyncClient,
 ):
-    class mock_stream(httpx.AsyncByteStream):
-        async def __aiter__(self) -> AsyncIterator[bytes]:
-            yield b"data: chunk1\n\n"
-            yield b"data: chunk2\n\n"
-            yield b"data: [DONE]\n\n"
+    async def mock_stream() -> AsyncIterable[bytes]:
+        yield b"data: chunk1\n\n"
+        yield b"data: chunk2\n\n"
+        yield b"data: [DONE]\n\n"
 
     respx.post(
         "http://localhost:5001/openai/deployments/gpt-4/chat/completions?api-version=2023-03-15-preview"
-    ).mock(
-        side_effect=lambda request: httpx.Response(
-            status_code=200, stream=mock_stream()
-        )
+    ).respond(
+        status_code=200,
+        content_type="text/event-stream",
+        content=mock_stream(),
     )
 
     response = await test_app.post(
