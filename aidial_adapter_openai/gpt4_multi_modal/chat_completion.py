@@ -244,7 +244,7 @@ async def chat_completion(
         return map_stream(
             debug_print,
             generate_stream(
-                map_stream(
+                stream=map_stream(
                     response_transformer,
                     parse_openai_sse_stream(response),
                 ),

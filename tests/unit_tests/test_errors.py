@@ -1,5 +1,6 @@
 import json
-from typing import Any, AsyncIterable, Callable
+from typing import Any, AsyncIterable, AsyncIterator, Callable
+from unittest.mock import patch
 
 import httpx
 import respx
@@ -565,6 +566,56 @@ async def test_connection_error_from_upstream_streaming(
             "",
         ]
     )
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_adapter_internal_error(
+    test_app: httpx.AsyncClient,
+):
+    async def mock_generate_stream(stream: AsyncIterator[dict], **kwargs):
+        yield await stream.__anext__()
+        raise ValueError("failed generating the stream")
+
+    with patch(
+        "aidial_adapter_openai.gpt.generate_stream",
+        side_effect=mock_generate_stream,
+    ):
+
+        async def mock_stream() -> AsyncIterable[bytes]:
+            yield b'data: {"message": "first chunk"}\n\n'
+            yield b'data: {"message": "second chunk"}\n\n'
+            yield b"data: [DONE]"
+
+        respx.post(
+            "http://localhost:5001/openai/deployments/gpt-4/chat/completions?api-version=2023-03-15-preview"
+        ).respond(
+            status_code=200,
+            content_type="text/event-stream",
+            content=mock_stream(),
+        )
+
+        response = await test_app.post(
+            "/openai/deployments/gpt-4/chat/completions?api-version=2023-03-15-preview",
+            json={
+                "stream": True,
+                "messages": [{"role": "user", "content": "Test content"}],
+            },
+            headers={
+                "X-UPSTREAM-KEY": "TEST_API_KEY",
+                "X-UPSTREAM-ENDPOINT": "http://localhost:5001/openai/deployments/gpt-4/chat/completions",
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.text == "\n\n".join(
+            [
+                'data: {"message":"first chunk"}',
+                'data: {"error":{"message":"failed generating the stream","type":"internal_server_error","code":"500"}}',
+                "data: [DONE]",
+                "",
+            ]
+        )
 
 
 @respx.mock
