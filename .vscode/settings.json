@@ -8,9 +8,7 @@
     },
     "editor.tabSize": 4
   },
-  "python.testing.pytestArgs": [
-    "tests"
-  ],
+  "python.testing.pytestArgs": ["."],
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
   "python.analysis.typeCheckingMode": "basic"
