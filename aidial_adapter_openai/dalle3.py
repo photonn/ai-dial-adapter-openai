@@ -1,3 +1,5 @@
+import json
+import os
 from typing import Any, AsyncIterator, Optional
 
 import aiohttp
@@ -19,10 +21,24 @@ IMG_USAGE = {
 async def generate_image(
     api_url: str, creds: OpenAICreds, user_prompt: str
 ) -> JSONResponse | Any:
+
+    extra_params = {}
+    try:
+        extra_params = json.loads(os.getenv("DALLE_EXTRA_PARAMETERS", "{}"))
+    except json.JSONDecodeError:
+        # Log or handle the case where the environment variable is not valid JSON
+        extra_params = {}
+
+    payload = {
+        "prompt": user_prompt,
+        "response_format": "b64_json",
+        **extra_params,  # Add extra parameters
+    }
+
     async with aiohttp.ClientSession() as session:
         async with session.post(
             api_url,
-            json={"prompt": user_prompt, "response_format": "b64_json"},
+            json=payload,
             headers=get_auth_headers(creds),
         ) as response:
             status_code = response.status
