@@ -68,6 +68,7 @@ The following variables cluster all deployments into the groups of deployments w
 |---|---|---|
 |DALLE3_DEPLOYMENTS|``|Comma-separated list of deployments that support DALL-E 3 API. Example: `dall-e-3,dalle3,dall-e`|
 |DALLE3_AZURE_API_VERSION|2024-02-01|The version API for requests to Azure DALL-E-3 API|
+|DALLE_EXTRA_PARAMETERS|`{}`|JSON formated list of extra parameters, example: '{"size": "1024x1024", "quality": "hd", "style": "vivid"}'|
 |GPT4_VISION_DEPLOYMENTS|``|Comma-separated list of deployments that support GPT-4V API. Example: `gpt-4-vision-preview,gpt-4-vision`|
 |GPT4_VISION_MAX_TOKENS|1024|Default value of `max_tokens` parameter for GPT-4V when it wasn't provided in the request|
 |MISTRAL_DEPLOYMENTS|``|Comma-separated list of deployments that support Mistral Large Azure API. Example: `mistral-large-azure,mistral-large`|
