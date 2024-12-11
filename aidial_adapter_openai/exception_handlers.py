@@ -1,22 +1,21 @@
 from aidial_sdk.exceptions import HTTPException as DialException
 from aidial_sdk.exceptions import InternalServerError
-from fastapi import Request
-from fastapi.responses import Response
-from openai import (
-    APIConnectionError,
-    APIError,
-    APIStatusError,
-    APITimeoutError,
-    OpenAIError,
-)
+from fastapi.requests import Request as FastAPIRequest
+from fastapi.responses import Response as FastAPIResponse
+from openai import APIConnectionError, APIError, APIStatusError, APITimeoutError
 
 from aidial_adapter_openai.utils.adapter_exception import (
     AdapterException,
+    ResponseWrapper,
     parse_adapter_exception,
 )
 
 
 def to_adapter_exception(exc: Exception) -> AdapterException:
+
+    if isinstance(exc, (DialException, ResponseWrapper)):
+        return exc
+
     if isinstance(exc, APIStatusError):
         # Non-streaming errors reported by `openai` library via this exception
         r = exc.response
@@ -70,12 +69,10 @@ def to_adapter_exception(exc: Exception) -> AdapterException:
             content={"error": exc.body or {}},
         )
 
-    if isinstance(exc, DialException):
-        return exc
-
     return InternalServerError(str(exc))
 
 
-def openai_exception_handler(request: Request, exc: Exception) -> Response:
-    assert isinstance(exc, OpenAIError)
+def adapter_exception_handler(
+    request: FastAPIRequest, exc: Exception
+) -> FastAPIResponse:
     return to_adapter_exception(exc).to_fastapi_response()
