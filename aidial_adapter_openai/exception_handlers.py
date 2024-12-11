@@ -30,11 +30,9 @@ def to_adapter_exception(exc: Exception) -> AdapterException:
         if "Content-Encoding" in httpx_headers:
             del httpx_headers["Content-Encoding"]
 
-        headers = {k.decode(): v.decode() for k, v in httpx_headers.raw}
-
         return parse_adapter_exception(
             status_code=r.status_code,
-            headers=headers,
+            headers=dict(httpx_headers.items()),
             content=r.text,
         )
 

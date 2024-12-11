@@ -2,7 +2,6 @@ import json
 from typing import Any, Dict
 
 from aidial_sdk.exceptions import HTTPException as DialException
-from fastapi import HTTPException as FastAPIException
 from fastapi.responses import Response as FastAPIResponse
 
 
@@ -36,13 +35,6 @@ class ResponseWrapper(Exception):
         return FastAPIResponse(
             status_code=self.status_code,
             content=self.content,
-            headers=self.headers,
-        )
-
-    def to_fastapi_exception(self) -> FastAPIException:
-        return FastAPIException(
-            status_code=self.status_code,
-            detail=self.content,
             headers=self.headers,
         )
 
