@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, List
+from typing import Callable, Dict, List
 
 from pydantic import BaseModel
 
@@ -25,23 +25,32 @@ class ApplicationConfig(BaseModel):
     NON_STREAMING_DEPLOYMENTS: List[str] = []
     ELIMINATE_EMPTY_CHOICES: bool = False
 
+    DEPLOYMENT_TYPE_MAP: Dict[
+        ChatCompletionDeploymentType, Callable[["ApplicationConfig"], List[str]]
+    ] = {
+        ChatCompletionDeploymentType.DALLE3: lambda config: config.DALLE3_DEPLOYMENTS,
+        ChatCompletionDeploymentType.GPT4_VISION: lambda config: config.GPT4_VISION_DEPLOYMENTS,
+        ChatCompletionDeploymentType.MISTRAL: lambda config: config.MISTRAL_DEPLOYMENTS,
+        ChatCompletionDeploymentType.DATABRICKS: lambda config: config.DATABRICKS_DEPLOYMENTS,
+        ChatCompletionDeploymentType.GPT4O: lambda config: config.GPT4O_DEPLOYMENTS,
+        ChatCompletionDeploymentType.GPT4O_MINI: lambda config: config.GPT4O_MINI_DEPLOYMENTS,
+    }
+
     def get_chat_completion_deployment_type(
         self, deployment_id: str
     ) -> ChatCompletionDeploymentType:
-        if deployment_id in self.DALLE3_DEPLOYMENTS:
-            return ChatCompletionDeploymentType.DALLE3
-        elif deployment_id in self.GPT4_VISION_DEPLOYMENTS:
-            return ChatCompletionDeploymentType.GPT4_VISION
-        elif deployment_id in self.MISTRAL_DEPLOYMENTS:
-            return ChatCompletionDeploymentType.MISTRAL
-        elif deployment_id in self.DATABRICKS_DEPLOYMENTS:
-            return ChatCompletionDeploymentType.DATABRICKS
-        elif deployment_id in self.GPT4O_DEPLOYMENTS:
-            return ChatCompletionDeploymentType.GPT4O
-        elif deployment_id in self.GPT4O_MINI_DEPLOYMENTS:
-            return ChatCompletionDeploymentType.GPT4O_MINI
-        else:
-            return ChatCompletionDeploymentType.GPT_TEXT_ONLY
+        for deployment_type, config_getter in self.DEPLOYMENT_TYPE_MAP.items():
+            if deployment_id in config_getter(self):
+                return deployment_type
+        return ChatCompletionDeploymentType.GPT_TEXT_ONLY
+
+    def add_deployment(
+        self, deployment_id: str, deployment_type: ChatCompletionDeploymentType
+    ):
+        if deployment_type == ChatCompletionDeploymentType.GPT_TEXT_ONLY:
+            return
+        config_getter = self.DEPLOYMENT_TYPE_MAP[deployment_type]
+        config_getter(self).append(deployment_id)
 
     @classmethod
     def from_env(cls) -> "ApplicationConfig":
