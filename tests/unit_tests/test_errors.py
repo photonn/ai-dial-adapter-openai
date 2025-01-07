@@ -440,6 +440,7 @@ async def test_status_error_from_upstream(test_app: httpx.AsyncClient):
 
 
 @respx.mock
+@pytest.mark.asyncio
 async def test_status_error_from_upstream_with_headers(
     test_app: httpx.AsyncClient,
 ):
@@ -492,6 +493,7 @@ async def test_timeout_error_from_upstream(test_app: httpx.AsyncClient):
 
 
 @respx.mock
+@pytest.mark.asyncio
 async def test_connection_error_from_upstream_non_streaming(
     test_app: httpx.AsyncClient,
 ):
@@ -520,6 +522,7 @@ async def test_connection_error_from_upstream_non_streaming(
 
 
 @respx.mock
+@pytest.mark.asyncio
 async def test_connection_error_from_upstream_streaming(
     test_app: httpx.AsyncClient,
 ):
@@ -561,6 +564,7 @@ async def test_connection_error_from_upstream_streaming(
 
 
 @respx.mock
+@pytest.mark.asyncio
 async def test_adapter_internal_error(
     test_app: httpx.AsyncClient,
 ):
@@ -610,6 +614,7 @@ async def test_adapter_internal_error(
 
 
 @respx.mock
+@pytest.mark.asyncio
 async def test_invalid_chunk_stream_from_upstream(
     test_app: httpx.AsyncClient,
 ):
@@ -650,6 +655,7 @@ async def test_invalid_chunk_stream_from_upstream(
 
 
 @respx.mock
+@pytest.mark.asyncio
 async def test_unexpected_multi_modal_input_streaming(
     test_app: httpx.AsyncClient,
 ):
